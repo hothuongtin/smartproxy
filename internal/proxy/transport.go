@@ -19,6 +19,11 @@ import (
 // Constants for transport management
 const (
 	DefaultTimeout = 30 * time.Second
+	
+	// Buffer sizes
+	SmallBufferSize  = 16 * 1024  // 16KB for small requests
+	MediumBufferSize = 64 * 1024  // 64KB for normal requests
+	LargeBufferSize  = 256 * 1024 // 256KB for large/media requests
 )
 
 // Chrome/Chromium user agent patterns
@@ -38,6 +43,77 @@ func IsChromeBrowser(userAgent string) bool {
 		}
 	}
 	return false
+}
+
+// DetermineBufferSize determines optimal buffer size based on request
+func DetermineBufferSize(r *http.Request, isStatic bool, logger *slog.Logger) (readBuffer, writeBuffer int) {
+	// Default to medium buffers
+	readBuffer = MediumBufferSize
+	writeBuffer = MediumBufferSize
+	
+	// Check if it's a media file based on URL extension
+	urlPath := strings.ToLower(r.URL.Path)
+	isMedia := false
+	mediaExtensions := []string{".mp4", ".webm", ".mp3", ".wav", ".ogg", ".avi", ".mov", ".mkv"}
+	for _, ext := range mediaExtensions {
+		if strings.HasSuffix(urlPath, ext) {
+			isMedia = true
+			break
+		}
+	}
+	
+	// Check Content-Type header for media
+	contentType := r.Header.Get("Accept")
+	if strings.Contains(contentType, "video/") || strings.Contains(contentType, "audio/") {
+		isMedia = true
+	}
+	
+	// Adjust buffer sizes based on request type
+	if isMedia {
+		// Large buffers for media streaming
+		readBuffer = LargeBufferSize
+		writeBuffer = LargeBufferSize
+		logger.Debug("Using large buffers for media content",
+			"url", r.URL.Path,
+			"read_buffer", readBuffer,
+			"write_buffer", writeBuffer)
+	} else if isStatic {
+		// Medium buffers for static files
+		readBuffer = MediumBufferSize
+		writeBuffer = MediumBufferSize
+		logger.Debug("Using medium buffers for static content",
+			"url", r.URL.Path,
+			"read_buffer", readBuffer,
+			"write_buffer", writeBuffer)
+	} else if r.Method == "POST" || r.Method == "PUT" {
+		// Larger write buffer for uploads
+		writeBuffer = LargeBufferSize
+		logger.Debug("Using large write buffer for upload",
+			"method", r.Method,
+			"url", r.URL.Path,
+			"write_buffer", writeBuffer)
+	} else if strings.Contains(urlPath, "api/") || strings.Contains(urlPath, "/api") {
+		// Small buffers for API calls
+		readBuffer = SmallBufferSize
+		writeBuffer = SmallBufferSize
+		logger.Debug("Using small buffers for API request",
+			"url", r.URL.Path,
+			"read_buffer", readBuffer,
+			"write_buffer", writeBuffer)
+	}
+	
+	// Chrome gets slightly larger buffers
+	if IsChromeBrowser(r.Header.Get("User-Agent")) {
+		if readBuffer == SmallBufferSize {
+			readBuffer = MediumBufferSize
+		}
+		if writeBuffer == SmallBufferSize {
+			writeBuffer = MediumBufferSize
+		}
+		logger.Debug("Adjusted buffers for Chrome browser")
+	}
+	
+	return readBuffer, writeBuffer
 }
 
 // TransportConfig contains configuration for transport management

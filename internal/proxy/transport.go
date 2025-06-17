@@ -21,6 +21,25 @@ const (
 	DefaultTimeout = 30 * time.Second
 )
 
+// Chrome/Chromium user agent patterns
+var chromeUserAgentPatterns = []string{
+	"Chrome/",
+	"Chromium/",
+	"CriOS/", // Chrome on iOS
+	"Edg/",   // Edge (Chromium-based)
+}
+
+// IsChromeBrowser detects if the request is from Chrome/Chromium
+func IsChromeBrowser(userAgent string) bool {
+	lowerUA := strings.ToLower(userAgent)
+	for _, pattern := range chromeUserAgentPatterns {
+		if strings.Contains(lowerUA, strings.ToLower(pattern)) {
+			return true
+		}
+	}
+	return false
+}
+
 // TransportConfig contains configuration for transport management
 type TransportConfig struct {
 	MaxIdleConns          int
@@ -70,6 +89,69 @@ func CreateOptimizedTransport(config *TransportConfig) *http.Transport {
 		// Disable compression to reduce CPU usage
 		DisableCompression: true,
 	}
+}
+
+// CreateChromeOptimizedTransport creates transport optimized for Chrome browsers
+func CreateChromeOptimizedTransport(config *TransportConfig, logger *slog.Logger) *http.Transport {
+	// Chrome typically opens more connections per host
+	// and benefits from higher connection limits
+	chromeConfig := *config
+	
+	// Chrome opens up to 6 connections per host by default
+	// We'll increase this to handle Chrome's aggressive connection behavior
+	if chromeConfig.MaxIdleConnsPerHost < 20 {
+		chromeConfig.MaxIdleConnsPerHost = 20
+	}
+	
+	// Increase total idle connections for Chrome's multi-tab behavior
+	if chromeConfig.MaxIdleConns < 200 {
+		chromeConfig.MaxIdleConns = 200
+	}
+	
+	logger.Debug("Chrome transport optimization applied",
+		"original_max_idle_conns", config.MaxIdleConns,
+		"optimized_max_idle_conns", chromeConfig.MaxIdleConns,
+		"original_max_idle_conns_per_host", config.MaxIdleConnsPerHost,
+		"optimized_max_idle_conns_per_host", chromeConfig.MaxIdleConnsPerHost)
+	
+	transport := &http.Transport{
+		// Connection pooling settings optimized for Chrome
+		MaxIdleConns:        chromeConfig.MaxIdleConns,
+		MaxIdleConnsPerHost: chromeConfig.MaxIdleConnsPerHost,
+		IdleConnTimeout:     time.Duration(chromeConfig.IdleConnTimeout) * time.Second,
+
+		// Timeouts
+		TLSHandshakeTimeout:   time.Duration(chromeConfig.TLSHandshakeTimeout) * time.Second,
+		ExpectContinueTimeout: time.Duration(chromeConfig.ExpectContinueTimeout) * time.Second,
+
+		// Buffer settings - Chrome handles its own buffering well
+		ReadBufferSize:  chromeConfig.ReadBufferSize,
+		WriteBufferSize: chromeConfig.WriteBufferSize,
+
+		// Connection settings
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+			DualStack: true,
+		}).DialContext,
+
+		// TLS settings
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify:     false,
+			SessionTicketsDisabled: false, // Chrome benefits from session resumption
+		},
+
+		// Chrome supports HTTP/2
+		ForceAttemptHTTP2: true,
+
+		// Chrome handles its own compression
+		DisableCompression: true,
+		
+		// Increase max response header size for Chrome's verbose headers
+		MaxResponseHeaderBytes: 65536, // 64KB
+	}
+	
+	return transport
 }
 
 // CreateHTTPProxyTransport creates transport for upstream HTTP proxy

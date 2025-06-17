@@ -33,6 +33,7 @@ type Server struct {
 	logger          *slog.Logger
 	proxyServer     *goproxy.ProxyHttpServer
 	directTransport *http.Transport
+	chromeTransport *http.Transport
 
 	// Global state
 	connectUpstreams sync.Map // map[string]*UpstreamInfo (keyed by remote addr)
@@ -69,6 +70,12 @@ func (s *Server) Start() error {
 		"max_idle_conns", s.transportConfig.MaxIdleConns,
 		"max_idle_conns_per_host", s.transportConfig.MaxIdleConnsPerHost,
 		"idle_conn_timeout", s.transportConfig.IdleConnTimeout)
+
+	// Create Chrome-optimized transport
+	s.chromeTransport = CreateChromeOptimizedTransport(s.transportConfig, s.logger)
+	s.logger.Debug("Created Chrome-optimized transport",
+		"max_idle_conns", s.chromeTransport.MaxIdleConns,
+		"max_idle_conns_per_host", s.chromeTransport.MaxIdleConnsPerHost)
 
 	// Setup HTTPS handling
 	s.setupHTTPS()
@@ -493,16 +500,30 @@ func (s *Server) setupMITMRouting() {
 				"host", r.Host,
 				"method", r.Method)
 
+			// Check if this is a Chrome browser
+			userAgent := r.Header.Get("User-Agent")
+			isChrome := IsChromeBrowser(userAgent)
+			
 			// Determine which transport to use
 			if IsStaticFile(fullURL, s.routingConfig, s.logger) || IsCDNDomain(r.Host, s.routingConfig, s.logger) {
 				// Use direct connection for static files and CDNs
 				s.logger.Debug("Using direct connection",
 					"reason", "static_file_or_cdn",
 					"url", fullURL,
+					"is_chrome", isChrome,
 					"duration", time.Since(startTime))
 
+				// Select appropriate transport based on browser
+				var transport *http.Transport
+				if isChrome {
+					transport = s.chromeTransport
+					s.logger.Debug("Using Chrome-optimized transport for direct connection")
+				} else {
+					transport = s.directTransport
+				}
+
 				ctx.RoundTripper = goproxy.RoundTripperFunc(func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Response, error) {
-					return s.directTransport.RoundTrip(req)
+					return transport.RoundTrip(req)
 				})
 			} else {
 				// Get upstream from context
@@ -571,17 +592,31 @@ func (s *Server) setupNonMITMRouting() {
 				"host", r.Host,
 				"method", r.Method)
 
+			// Check if this is a Chrome browser
+			userAgent := r.Header.Get("User-Agent")
+			isChrome := IsChromeBrowser(userAgent)
+			
 			// Check if it's a static file or CDN
 			if IsStaticFile(fullURL, s.routingConfig, s.logger) || IsCDNDomain(r.Host, s.routingConfig, s.logger) {
 				// Use direct connection
 				s.logger.Debug("Using direct connection (non-MITM)",
 					"reason", "static_file_or_cdn",
 					"url", fullURL,
+					"is_chrome", isChrome,
 					"duration", time.Since(startTime))
 
+				// Select appropriate transport based on browser
+				var transport *http.Transport
+				if isChrome {
+					transport = s.chromeTransport
+					s.logger.Debug("Using Chrome-optimized transport for direct connection (non-MITM)")
+				} else {
+					transport = s.directTransport
+				}
+				
 				ctx.RoundTripper = goproxy.RoundTripperFunc(func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Response, error) {
 					respStart := time.Now()
-					resp, err := s.directTransport.RoundTrip(req)
+					resp, err := transport.RoundTrip(req)
 
 					if err != nil {
 						s.logger.Debug("Direct request failed",

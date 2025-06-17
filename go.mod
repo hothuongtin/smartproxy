@@ -1,6 +1,6 @@
 module github.com/hothuongtin/smartproxy
 
-go 1.24.4
+go 1.21
 
 require (
 	github.com/MatusOllah/slogcolor v1.6.0

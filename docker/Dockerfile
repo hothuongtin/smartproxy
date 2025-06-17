@@ -16,12 +16,13 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy source code
-COPY *.go ./
+COPY cmd/ ./cmd/
+COPY internal/ ./internal/
 
 # Build statically linked binary with optimizations
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -ldflags='-s -w -extldflags "-static"' \
-    -a -installsuffix cgo -o smartproxy .
+    -a -installsuffix cgo -o smartproxy ./cmd/smartproxy
 
 # Compress binary with UPX for even smaller size
 RUN apk add --no-cache upx && \
@@ -40,8 +41,7 @@ COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 COPY --from=builder /build/smartproxy /smartproxy
 
 # Copy config files
-COPY config.yaml /app/config.yaml
-COPY ad_domains.yaml /app/ad_domains.yaml
+COPY configs/ /app/configs/
 
 # Set working directory
 WORKDIR /app
@@ -53,7 +53,7 @@ USER nonroot
 EXPOSE 8888
 
 # Set config path environment variable
-ENV SMARTPROXY_CONFIG=/app/config.yaml
+ENV SMARTPROXY_CONFIG=/app/configs/config.yaml
 
 # Run the proxy
 ENTRYPOINT ["/smartproxy"]

@@ -3,8 +3,8 @@ version: '3.8'
 services:
   smartproxy:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile
     image: smartproxy:latest
     container_name: smartproxy
     restart: unless-stopped
@@ -12,12 +12,11 @@ services:
       - "8888:8888"
     volumes:
       # Mount config files as read-only
-      - ./config.yaml:/app/config.yaml:ro
-      - ./ad_domains.yaml:/app/ad_domains.yaml:ro
+      - ../configs:/app/configs:ro
       # Optional: Mount CA certificates if using HTTPS MITM
       # - ./certs:/app/certs:ro
     environment:
-      - SMARTPROXY_CONFIG=/app/config.yaml
+      - SMARTPROXY_CONFIG=/app/configs/config.yaml
       # Optional: Set log level
       # - LOG_LEVEL=debug
     networks:

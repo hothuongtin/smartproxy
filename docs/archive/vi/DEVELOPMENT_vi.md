@@ -25,7 +25,7 @@ export PATH=$PATH:/usr/local/go/bin
 
 ### Clone repository
 ```bash
-git clone https://github.com/yourusername/smartproxy.git
+git clone https://github.com/hothuongtin/smartproxy.git
 cd smartproxy
 ```
 
@@ -257,7 +257,7 @@ go tool pprof http://localhost:6060/debug/pprof/profile?seconds=30
 ```bash
 # Fork trên GitHub
 # Clone fork của bạn
-git clone https://github.com/yourusername/smartproxy.git
+git clone https://github.com/hothuongtin/smartproxy.git
 cd smartproxy
 git remote add upstream https://github.com/originalowner/smartproxy.git
 ```

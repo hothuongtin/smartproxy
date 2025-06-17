@@ -25,13 +25,13 @@ make deps
 ### Testing
 ```bash
 # Run functional tests
-./test_proxy.sh          # Main test suite
-./test_https.sh          # HTTPS functionality
-./test_http_js.sh        # HTTP JavaScript handling
-./test_js_direct.sh      # Direct connection tests
+./scripts/test/test_proxy.sh          # Main test suite
+./scripts/test/test_https.sh          # HTTPS functionality
+./scripts/test/test_http_js.sh        # HTTP JavaScript handling
+./scripts/test/test_js_direct.sh      # Direct connection tests
 
 # Generate CA certificate for HTTPS MITM
-./generate_ca.sh
+./scripts/setup/generate_ca.sh
 ```
 
 ### Docker
@@ -43,10 +43,10 @@ make docker-build
 make docker-run
 
 # Use docker-compose
-docker-compose up -d
+cd docker && docker-compose up -d
 
 # Build minimal scratch image
-docker build -f Dockerfile.scratch -t smartproxy:scratch .
+docker build -f docker/Dockerfile.scratch -t smartproxy:scratch .
 ```
 
 ### Development Workflow
@@ -70,45 +70,64 @@ curl -x http://localhost:8888 http://httpbin.org/get
 ## Architecture
 
 ### Core Design
-SmartProxy is a high-performance HTTP/HTTPS proxy with intelligent routing. All business logic resides in `main.go` with configuration handling in `config.go`.
+SmartProxy is a high-performance HTTP/HTTPS proxy with intelligent routing using modular architecture. The project follows standard Go layout with separate packages for different concerns.
+
+### Module Structure
+- **cmd/smartproxy/** - Main application entry point
+- **internal/config/** - Configuration management and validation
+- **internal/logger/** - Structured logging with slogcolor
+- **internal/proxy/** - Core proxy logic, routing, and transport management
 
 ### Request Flow
 1. Client connects to proxy (default port 8888)
-2. Proxy determines request type:
+2. Proxy authenticates client and extracts upstream from credentials
+3. Proxy determines request type:
    - **Static files** (.js, .css, images, etc.) → Direct connection
    - **CDN domains** → Direct connection  
    - **Ad domains** → Blocked (204 No Content)
-   - **Other requests** → Upstream proxy (REQUIRED)
+   - **Other requests** → Upstream proxy (from authentication)
 
 ### Key Components
 
-**Transport Management**
-- `createOptimizedTransport()` - Creates high-performance direct transport with connection pooling
-- `createHTTPProxyTransport()` - Creates transport for HTTP upstream proxy
-- `createSOCKS5ProxyTransport()` - Creates transport for SOCKS5 upstream proxy
+**Server Management** (`internal/proxy/server.go`)
+- `NewServer()` - Creates configured proxy server with all components
+- `Start()` - Starts HTTP proxy server with graceful shutdown support
+- Authentication and upstream routing handlers
 
-**Routing Logic**
-- `isStaticFile()` - Checks if URL matches static file extensions (handles query params correctly)
-- `isCDNDomain()` - Checks if domain is a known CDN
-- `isAdDomain()` - O(1) lookup in ad domains map
+**Transport Management** (`internal/proxy/transport.go`)
+- `CreateOptimizedTransport()` - Creates high-performance direct transport with connection pooling
+- `CreateHTTPProxyTransport()` - Creates transport for HTTP upstream proxy
+- `CreateSOCKS5ProxyTransport()` - Creates transport for SOCKS5 upstream proxy
+- `DialThroughHTTPProxy()` - Direct HTTPS upstream tunneling for HTTP proxies
+- `DialThroughSOCKS5Proxy()` - Direct HTTPS upstream tunneling for SOCKS5 proxies
+
+**Routing Logic** (`internal/proxy/routing.go`)
+- `IsStaticFile()` - Checks if URL matches static file extensions (handles query params correctly)
+- `IsCDNDomain()` - Checks if domain is a known CDN
+- `IsAdDomain()` - O(1) lookup in ad domains map
 
 **HTTPS Handling**
-- **MITM Disabled** (default): Tunnels HTTPS without decryption
+- **MITM Disabled** (default): Tunnels HTTPS without decryption through upstream proxies
 - **MITM Enabled**: Decrypts HTTPS for inspection (requires CA cert)
+- **ConnectDial Handler**: Routes HTTPS CONNECT requests through configured upstream proxies
 
 ### Configuration
 
 **YAML Structure**
-- `config.yaml` - Main configuration
+- `configs/config.yaml` - Main configuration
   - Server settings (port, MITM, performance)
-  - Upstream proxy (MANDATORY)
   - Direct routing patterns
-- `ad_domains.yaml` - Ad blocking domains
+  - Logging settings
+- `configs/ad_domains.yaml` - Ad blocking domains
 
 **Important Settings**
-- `upstream.proxy_url` - REQUIRED, no fallback to direct
 - `server.https_mitm` - Controls HTTPS interception
 - `server.max_idle_conns` - Connection pool size (default: 10000)
+- `logging.level` - Log verbosity (debug, info, warn, error)
+
+**Smart Authentication**
+- Username: Schema (http or socks5)
+- Password: Base64(host:port[:user:pass])
 
 ### Performance Optimizations
 - Connection pooling with configurable limits
@@ -125,14 +144,59 @@ SmartProxy is a high-performance HTTP/HTTPS proxy with intelligent routing. All 
 - No explicit worker pool needed
 
 ### Error Handling
-- Upstream proxy required - fails fast if not configured
+- Authentication required - returns 407 if no credentials provided
+- Invalid credentials - returns 403 with clear error
 - HTTPS tunneling errors logged but don't break connections
 - CA certificate errors provide clear instructions
 
 ## Important Notes
 
-1. **Upstream Proxy Required**: The proxy will not start without `upstream.proxy_url` configured
+1. **Smart Proxy Authentication**: Upstream proxy configured dynamically via authentication credentials, no config needed
 2. **Static File Detection**: Uses `url.Parse()` which automatically strips query parameters and fragments
 3. **Ad Blocking**: Only works on HTTP or when HTTPS MITM is enabled
-4. **Environment Variables**: `SMARTPROXY_CONFIG` overrides config file path
-5. **Port Conflicts**: Default port 8888, kill existing processes with `pkill -f smartproxy`
+4. **MITM Mode**: Now requires authentication for all requests, ensuring secure proxy usage
+5. **Static File Detection**: Works seamlessly with MITM mode enabled, properly routing static files directly
+6. **Environment Variables**: `SMARTPROXY_CONFIG` overrides config file path
+7. **Port Conflicts**: Default port 8888, kill existing processes with `pkill -f smartproxy`
+
+## Documentation Updates
+
+When making changes to the codebase, remember to update the relevant documentation:
+
+### Documentation Structure
+```
+docs/
+├── en/                        # English documentation
+│   ├── getting-started.md     # Installation and setup
+│   ├── configuration.md       # Configuration reference
+│   ├── features.md           # Core features explained
+│   ├── authentication.md     # Smart proxy authentication
+│   ├── development.md        # Development guide
+│   ├── troubleshooting.md    # FAQ and debugging
+│   └── performance.md        # Performance optimization
+├── vi/                       # Vietnamese documentation
+│   └── (same structure as en/)
+└── examples/                 # Example configurations
+    ├── config.example.yaml
+    └── config.debug.yaml
+```
+
+### What to Update
+- **Configuration Changes**: Update `configuration.md` and example configs
+- **New Features**: Update `features.md` and relevant guides
+- **API/Auth Changes**: Update `authentication.md`
+- **Performance**: Update `performance.md`
+- **Common Issues**: Update `troubleshooting.md`
+- **Build/Dev Process**: Update `development.md`
+
+### Key Files
+- `README.md` / `README_vi.md` - Keep overview current, link to docs/
+- `configs/config.example.yaml` - Example configuration
+- `docker/docker-compose.yml` - Docker Compose config
+- `Makefile` - Build automation
+
+**Always keep documentation in sync with code changes!**
+
+## Memories
+- Update related documents each time they are edited.
+- Do not create a socks5 server for this project, the socks5 server only declares upstream

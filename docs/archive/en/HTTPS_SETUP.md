@@ -29,7 +29,7 @@ server:
 
 ## MITM Mode (Advanced)
 
-This mode allows the proxy to decrypt and inspect HTTPS traffic. Requires installing a CA certificate on client devices.
+This mode allows the proxy to decrypt and inspect HTTPS traffic. Requires installing a CA certificate on client devices and authentication for all requests.
 
 ### Step 1: Generate CA Certificate
 
@@ -92,6 +92,15 @@ sudo update-ca-certificates
 - You want to inspect HTTPS traffic
 - You need content filtering for HTTPS
 - You can manage CA certificates on all clients
+- Static file detection for HTTPS is required
+- You need full routing intelligence for HTTPS requests
+
+## Authentication in MITM Mode
+
+When MITM is enabled, all requests require proper proxy authentication:
+- Ensures only authorized users can inspect HTTPS traffic
+- Prevents unauthorized MITM attacks
+- Authentication credentials also configure upstream proxy routing
 
 ## Security Considerations
 

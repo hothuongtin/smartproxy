@@ -13,13 +13,14 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy source code
-COPY *.go ./
+COPY cmd/ ./cmd/
+COPY internal/ ./internal/
 
 # Build statically linked binary with all optimizations
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -ldflags='-s -w -extldflags "-static"' \
     -tags netgo -a -installsuffix netgo \
-    -o smartproxy .
+    -o smartproxy ./cmd/smartproxy
 
 # Create minimal passwd file for non-root user
 RUN echo "appuser:x:10001:10001::/:/smartproxy" > /etc/passwd.minimal
@@ -37,8 +38,7 @@ COPY --from=builder /etc/passwd.minimal /etc/passwd
 COPY --from=builder /build/smartproxy /smartproxy
 
 # Copy config files
-COPY config.yaml /app/config.yaml
-COPY ad_domains.yaml /app/ad_domains.yaml
+COPY configs/ /app/configs/
 
 # Set working directory
 WORKDIR /app
@@ -50,7 +50,7 @@ USER 10001
 EXPOSE 8888
 
 # Set config path environment variable
-ENV SMARTPROXY_CONFIG=/app/config.yaml
+ENV SMARTPROXY_CONFIG=/app/configs/config.yaml
 
 # Run the proxy
 ENTRYPOINT ["/smartproxy"]

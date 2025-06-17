@@ -29,7 +29,7 @@ server:
 
 ## Chế độ MITM (Nâng cao)
 
-Chế độ này cho phép proxy giải mã và kiểm tra traffic HTTPS. Yêu cầu cài đặt chứng chỉ CA trên thiết bị client.
+Chế độ này cho phép proxy giải mã và kiểm tra traffic HTTPS. Yêu cầu cài đặt chứng chỉ CA trên thiết bị client và xác thực cho tất cả các yêu cầu.
 
 ### Bước 1: Tạo chứng chỉ CA
 
@@ -92,6 +92,15 @@ sudo update-ca-certificates
 - Muốn kiểm tra traffic HTTPS
 - Cần lọc nội dung cho HTTPS
 - Có thể quản lý chứng chỉ CA trên tất cả client
+- Cần phát hiện file tĩnh cho HTTPS
+- Cần định tuyến thông minh đầy đủ cho yêu cầu HTTPS
+
+## Xác thực trong chế độ MITM
+
+Khi MITM được bật, tất cả các yêu cầu cần xác thực proxy hợp lệ:
+- Đảm bảo chỉ người dùng được ủy quyền mới có thể kiểm tra traffic HTTPS
+- Ngăn chặn các cuộc tấn công MITM trái phép
+- Thông tin xác thực cũng cấu hình định tuyến upstream proxy
 
 ## Cân nhắc về bảo mật
 

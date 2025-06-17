@@ -1,0 +1,77 @@
+# SmartProxy Debug Configuration
+# This configuration enables verbose debug logging
+
+# Local proxy server settings
+server:
+  http_port: 8888
+  
+  # HTTPS interception settings
+  https_mitm: false
+  ca_cert: ""
+  ca_key: ""
+  
+  # Performance settings for high concurrency
+  max_idle_conns: 10000
+  max_idle_conns_per_host: 100
+  idle_conn_timeout: 90
+  tls_handshake_timeout: 10
+  expect_continue_timeout: 1
+  
+  # Buffer settings
+  read_buffer_size: 65536
+  write_buffer_size: 65536
+
+# Smart Proxy Mode - Upstream configured via authentication
+# No upstream configuration needed in config file!
+
+# Ad blocking settings
+ad_blocking:
+  enabled: true
+  domains_file: "configs/ad_domains.yaml"
+
+# File extensions to handle directly (bypass proxy)
+direct_extensions:
+  - .jpg
+  - .jpeg
+  - .png
+  - .gif
+  - .webp
+  - .svg
+  - .ico
+  - .mp4
+  - .webm
+  - .css
+  - .js
+  - .woff
+  - .woff2
+  - .pdf
+  - .zip
+
+# CDN domains to handle directly for HTTPS
+direct_domains:
+  - cdn.
+  - static.
+  - cloudflare
+  - akamai
+  - fastly
+  - googleapis.com
+  - gstatic.com
+  - jsdelivr.net
+  - unpkg.com
+
+# Logging settings - DEBUG MODE
+logging:
+  level: debug      # Set to debug for verbose output
+  format: text
+
+# Debug mode will log:
+# - All incoming requests with method, URL, headers
+# - Authentication parsing details
+# - Upstream selection logic
+# - Routing decisions (direct vs upstream)
+# - Static file and CDN detection
+# - Ad domain blocking
+# - Transport creation and caching
+# - Request/response timing
+# - Connection handling
+# - Error details

@@ -1,20 +1,20 @@
-package main
+package config
 
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
 // Config represents the complete configuration structure
 type Config struct {
-	Server           ServerConfig   `yaml:"server"`
-	Upstream         UpstreamConfig `yaml:"upstream"`
-	AdBlocking       AdBlockConfig  `yaml:"ad_blocking"`
-	DirectExtensions []string       `yaml:"direct_extensions"`
-	DirectDomains    []string       `yaml:"direct_domains"`
-	Logging          LoggingConfig  `yaml:"logging"`
+	Server           ServerConfig  `yaml:"server"`
+	AdBlocking       AdBlockConfig `yaml:"ad_blocking"`
+	DirectExtensions []string      `yaml:"direct_extensions"`
+	DirectDomains    []string      `yaml:"direct_domains"`
+	Logging          LoggingConfig `yaml:"logging"`
 }
 
 // ServerConfig represents server configuration
@@ -30,13 +30,6 @@ type ServerConfig struct {
 	ExpectContinueTimeout int    `yaml:"expect_continue_timeout"`
 	ReadBufferSize        int    `yaml:"read_buffer_size"`
 	WriteBufferSize       int    `yaml:"write_buffer_size"`
-}
-
-// UpstreamConfig represents upstream proxy configuration
-type UpstreamConfig struct {
-	ProxyURL string `yaml:"proxy_url"`
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
 }
 
 // AdBlockConfig represents ad blocking configuration
@@ -96,6 +89,10 @@ func (c *Config) GetListenAddr() string {
 
 // SetDefaults sets default values for performance settings
 func (c *Config) SetDefaults() {
+	// Server defaults
+	if c.Server.HTTPPort == 0 {
+		c.Server.HTTPPort = 8888
+	}
 	if c.Server.MaxIdleConns == 0 {
 		c.Server.MaxIdleConns = 10000
 	}
@@ -117,7 +114,44 @@ func (c *Config) SetDefaults() {
 	if c.Server.WriteBufferSize == 0 {
 		c.Server.WriteBufferSize = 65536
 	}
+
+	// Ad blocking defaults
 	if c.AdBlocking.DomainsFile == "" {
 		c.AdBlocking.DomainsFile = "ad_domains.yaml"
 	}
+
+	// Logging defaults
+	if c.Logging.Level == "" {
+		c.Logging.Level = "info"
+	}
+	if c.Logging.Format == "" {
+		c.Logging.Format = "text"
+	}
+
+	// Set default extensions if empty
+	if len(c.DirectExtensions) == 0 {
+		c.DirectExtensions = []string{
+			".js", ".css", ".jpg", ".jpeg", ".png", ".gif", ".ico", ".svg", ".webp",
+			".woff", ".woff2", ".ttf", ".eot", ".mp4", ".webm", ".mp3", ".wav",
+			".pdf", ".zip", ".gz", ".tar", ".rar", ".7z",
+		}
+	}
+
+	// Set default CDN domains if empty
+	if len(c.DirectDomains) == 0 {
+		c.DirectDomains = []string{
+			"cdn.", "cdnjs.", "cloudflare.", "googleapis.", "gstatic.",
+			"unpkg.com", "jsdelivr.net", "bootstrapcdn.com", "jquery.com",
+			"staticfile.org", "akamai.", "fastly.", "cloudfront.",
+		}
+	}
+}
+
+// CreateAdDomainsMap creates a map for O(1) ad domain lookup
+func CreateAdDomainsMap(adDomains []string) map[string]bool {
+	adMap := make(map[string]bool, len(adDomains))
+	for _, domain := range adDomains {
+		adMap[strings.ToLower(domain)] = true
+	}
+	return adMap
 }

@@ -2,7 +2,7 @@
 
 # Variables
 BINARY_NAME := smartproxy
-MAIN_FILES := main.go config.go
+MAIN_PATH := ./cmd/smartproxy
 BUILD_DIR := build
 DOCKER_IMAGE := smartproxy
 DOCKER_TAG := latest
@@ -28,7 +28,7 @@ all: build
 build:
 	@echo "Building $(BINARY_NAME)..."
 	@mkdir -p $(BUILD_DIR)
-	@CGO_ENABLED=$(CGO_ENABLED) $(GOBUILD) -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_FILES)
+	@CGO_ENABLED=$(CGO_ENABLED) $(GOBUILD) -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 	@echo "Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
 
 # Build for multiple platforms
@@ -39,27 +39,35 @@ build-all: build-linux build-darwin build-windows
 build-linux:
 	@echo "Building for Linux..."
 	@mkdir -p $(BUILD_DIR)
-	@GOOS=linux GOARCH=amd64 CGO_ENABLED=$(CGO_ENABLED) $(GOBUILD) -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(MAIN_FILES)
-	@GOOS=linux GOARCH=arm64 CGO_ENABLED=$(CGO_ENABLED) $(GOBUILD) -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 $(MAIN_FILES)
+	@GOOS=linux GOARCH=amd64 CGO_ENABLED=$(CGO_ENABLED) $(GOBUILD) -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(MAIN_PATH)
+	@GOOS=linux GOARCH=arm64 CGO_ENABLED=$(CGO_ENABLED) $(GOBUILD) -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 $(MAIN_PATH)
 
 .PHONY: build-darwin
 build-darwin:
 	@echo "Building for macOS..."
 	@mkdir -p $(BUILD_DIR)
-	@GOOS=darwin GOARCH=amd64 CGO_ENABLED=$(CGO_ENABLED) $(GOBUILD) -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(MAIN_FILES)
-	@GOOS=darwin GOARCH=arm64 CGO_ENABLED=$(CGO_ENABLED) $(GOBUILD) -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 $(MAIN_FILES)
+	@GOOS=darwin GOARCH=amd64 CGO_ENABLED=$(CGO_ENABLED) $(GOBUILD) -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(MAIN_PATH)
+	@GOOS=darwin GOARCH=arm64 CGO_ENABLED=$(CGO_ENABLED) $(GOBUILD) -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 $(MAIN_PATH)
 
 .PHONY: build-windows
 build-windows:
 	@echo "Building for Windows..."
 	@mkdir -p $(BUILD_DIR)
-	@GOOS=windows GOARCH=amd64 CGO_ENABLED=$(CGO_ENABLED) $(GOBUILD) -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe $(MAIN_FILES)
+	@GOOS=windows GOARCH=amd64 CGO_ENABLED=$(CGO_ENABLED) $(GOBUILD) -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe $(MAIN_PATH)
 
 # Run the proxy
 .PHONY: run
 run: build
 	@echo "Starting $(BINARY_NAME)..."
 	@./$(BUILD_DIR)/$(BINARY_NAME)
+
+# Run the proxy in debug mode
+.PHONY: debug
+debug: build
+	@echo "Starting $(BINARY_NAME) in debug mode..."
+	@cp configs/config.example.yaml configs/config.yaml 2>/dev/null || true
+	@sed -i '' 's/level: info/level: debug/' configs/config.yaml 2>/dev/null || sed -i 's/level: info/level: debug/' configs/config.yaml 2>/dev/null || true
+	@SMARTPROXY_CONFIG=configs/config.yaml ./$(BUILD_DIR)/$(BINARY_NAME)
 
 # Clean build artifacts
 .PHONY: clean
@@ -88,27 +96,27 @@ update-deps:
 .PHONY: test
 test:
 	@echo "Running tests..."
-	@./test_proxy.sh
-	@./test_https.sh
-	@./test_http_js.sh
-	@./test_js_direct.sh
+	@./scripts/test/test_proxy.sh
+	@./scripts/test/test_https.sh
+	@./scripts/test/test_http_js.sh
+	@./scripts/test/test_js_direct.sh
 
 # Generate CA certificate
 .PHONY: ca-cert
 ca-cert:
 	@echo "Generating CA certificate..."
-	@./generate_ca.sh
+	@./scripts/setup/generate_ca.sh
 
 # Docker targets
 .PHONY: docker-build
 docker-build:
 	@echo "Building Docker image..."
-	@docker build -t $(DOCKER_IMAGE):$(DOCKER_TAG) .
+	@docker build -f docker/Dockerfile -t $(DOCKER_IMAGE):$(DOCKER_TAG) .
 
 .PHONY: docker-run
 docker-run:
 	@echo "Running Docker container..."
-	@docker run -it --rm -p 8888:8888 -v $(PWD)/config.yaml:/app/config.yaml:ro $(DOCKER_IMAGE):$(DOCKER_TAG)
+	@docker run -it --rm -p 8888:8888 -v $(PWD)/configs/config.yaml:/app/configs/config.yaml:ro $(DOCKER_IMAGE):$(DOCKER_TAG)
 
 .PHONY: docker-push
 docker-push:
@@ -120,7 +128,7 @@ docker-push:
 dev:
 	@echo "Running in development mode with live reload..."
 	@pkill -f $(BINARY_NAME) 2>/dev/null || true
-	@$(GOBUILD) -o $(BINARY_NAME) $(MAIN_FILES) && ./$(BINARY_NAME)
+	@$(GOBUILD) -o $(BINARY_NAME) $(MAIN_PATH) && ./$(BINARY_NAME)
 
 .PHONY: kill
 kill:
@@ -151,6 +159,7 @@ help:
 	@echo "  build        - Build the binary for current platform"
 	@echo "  build-all    - Build for all platforms (Linux, macOS, Windows)"
 	@echo "  run          - Build and run the proxy"
+	@echo "  debug        - Build and run the proxy in debug mode"
 	@echo "  clean        - Remove build artifacts"
 	@echo "  deps         - Download dependencies"
 	@echo "  update-deps  - Update dependencies"

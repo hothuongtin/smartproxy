@@ -1,5 +1,20 @@
 # SmartProxy FAQ
 
+## Q: Why does curl show authentication error but Chrome still works?
+
+**A:** Chrome uses persistent connections (keep-alive). When you enter wrong password:
+- curl creates new connection → checks auth → shows error
+- Chrome reuses existing authenticated connection → continues working
+
+This is standard HTTP behavior, not a bug.
+
+**Solution:**
+1. Close Chrome completely to disconnect old connections
+2. Or go to chrome://net-internals/#sockets → "Flush socket pools"
+3. Reopen Chrome and enter new credentials
+
+See [BROWSER_AUTH_NOTES.md](BROWSER_AUTH_NOTES.md) for details.
+
 ## Q: Why does ip-api.com return "SSL unavailable" error?
 
 **A:** The free ip-api.com API doesn't support HTTPS. Use HTTP instead:
@@ -12,8 +27,11 @@ This is not a proxy issue - it's a limitation of their free tier.
 
 **A:** When `https_mitm: false` (default), SmartProxy tunnels HTTPS connections without decryption. This works perfectly for all standard HTTPS sites. The proxy:
 - Establishes a tunnel using the CONNECT method
+- Routes HTTPS connections through your configured upstream proxy (if provided)
 - Forwards encrypted traffic without inspection
 - Maintains end-to-end encryption
+
+**Note:** HTTPS connections now properly use the upstream proxy configured via authentication, except for CDN domains which use direct connections for better performance.
 
 ## Q: What's the difference between MITM enabled vs disabled?
 

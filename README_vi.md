@@ -7,10 +7,11 @@ Một proxy HTTP/HTTPS hiệu suất cao với khả năng định tuyến thôn
 - 🚀 **Hiệu suất cao**: Xử lý hàng ngàn kết nối đồng thời với connection pooling
 - 🎯 **Định tuyến thông minh**: Kết nối trực tiếp cho file tĩnh và CDN
 - 🚫 **Chặn quảng cáo**: Chặn domain quảng cáo và tracking với hiệu suất O(1)
-- 🔒 **Hỗ trợ HTTPS**: Tùy chọn MITM để kiểm tra hoặc tunnel an toàn
+- 🔒 **Hỗ trợ HTTPS**: Tùy chọn MITM để kiểm tra hoặc tunnel an toàn với xác thực đầy đủ
 - 🌈 **Log màu sắc**: Log có cấu trúc đẹp mắt với slogcolor
 - 📦 **Docker image tối giản**: Image production chỉ ~15MB sử dụng distroless/scratch
 - 🔧 **Cấu hình linh hoạt**: Cấu hình bằng YAML với hỗ trợ hot-reload
+- 🔐 **Smart Authentication**: Cấu hình upstream động qua thông tin xác thực
 
 ## Bắt đầu nhanh
 
@@ -29,7 +30,7 @@ make dev
 
 ```bash
 # Sử dụng docker-compose (khuyến nghị)
-docker-compose up -d
+cd docker && docker-compose up -d
 
 # Hoặc build và chạy thủ công
 make docker-build
@@ -40,15 +41,16 @@ make docker-run
 
 1. Sao chép file cấu hình mẫu:
 ```bash
-cp config.example.yaml config.yaml
+cp configs/config.example.yaml configs/config.yaml
 ```
 
-2. Cấu hình upstream proxy (BẮT BUỘC):
-```yaml
-upstream:
-  proxy_url: "http://your-proxy:8080"
-  username: "tùy chọn"
-  password: "tùy chọn"
+2. Cấu hình upstream động qua xác thực:
+```bash
+# Username: schema (http hoặc socks5)
+# Password: base64(host:port) hoặc base64(host:port:user:pass)
+
+# Ví dụ:
+curl -x http://http:bmEubHVuYXByb3h5LmNvbToxMjIzMw==@localhost:8888 http://ipinfo.io
 ```
 
 3. Chạy proxy:
@@ -63,26 +65,38 @@ make run
 ```yaml
 server:
   http_port: 8888              # Cổng lắng nghe proxy
-  https_mitm: false            # Bật chặn HTTPS
+  https_mitm: false            # Bật chặn HTTPS (yêu cầu xác thực)
   max_idle_conns: 10000        # Kích thước connection pool
   max_idle_conns_per_host: 100 # Giới hạn kết nối mỗi host
 ```
 
-### Upstream Proxy (Bắt buộc)
+### Smart Authentication Mode
 
-```yaml
-upstream:
-  proxy_url: "http://proxy:8080"  # hoặc "socks5://127.0.0.1:1080"
-  username: ""
-  password: ""
+Cấu hình upstream proxy động cho mỗi kết nối:
+
+```bash
+# Định dạng
+Username: <schema>  # http hoặc socks5
+Password: <base64-encoded-upstream>
+
+# Ví dụ
+# HTTP proxy không có auth
+echo -n "proxy.example.com:8080" | base64
+# Kết quả: cHJveHkuZXhhbXBsZS5jb206ODA4MA==
+
+# SOCKS5 proxy có auth
+echo -n "socks.example.com:1080:user:pass" | base64
+# Kết quả: c29ja3MuZXhhbXBsZS5jb206MTA4MDp1c2VyOnBhc3M=
 ```
+
+Xem [Hướng dẫn xác thực](docs/vi/authentication_vi.md) để biết chi tiết.
 
 ### Chặn quảng cáo
 
 ```yaml
 ad_blocking:
   enabled: true
-  domains_file: "ad_domains.yaml"
+  domains_file: "configs/ad_domains.yaml"
 ```
 
 ## Hiệu suất
@@ -113,7 +127,7 @@ Chúng tôi cung cấp nhiều tùy chọn Docker image:
 - Base: `gcr.io/distroless/static-debian12`
 
 ```bash
-docker build -t smartproxy:latest .
+docker build -f docker/Dockerfile -t smartproxy:latest .
 ```
 
 ### Scratch (Tối thiểu)
@@ -122,7 +136,7 @@ docker build -t smartproxy:latest .
 - Base: `scratch`
 
 ```bash
-docker build -f Dockerfile.scratch -t smartproxy:scratch .
+docker build -f docker/Dockerfile.scratch -t smartproxy:scratch .
 ```
 
 ## Cấu hình HTTPS
@@ -149,6 +163,8 @@ server:
 ```
 
 3. Cài đặt CA trên thiết bị client
+
+**Lưu ý**: Chế độ MITM hiện yêu cầu xác thực cho tất cả các yêu cầu, đảm bảo sử dụng proxy an toàn. Phát hiện file tĩnh và định tuyến thông minh hoạt động liền mạch với MITM được bật.
 
 ## Phát triển
 
@@ -177,8 +193,8 @@ make build-all
 make test
 
 # Test chức năng cụ thể
-./test_proxy.sh
-./test_https.sh
+./scripts/test/test_proxy.sh
+./scripts/test/test_https.sh
 ```
 
 ### Chất lượng code
@@ -214,6 +230,25 @@ MIT License - xem file LICENSE để biết chi tiết
 
 ## Khắc phục sự cố
 
+### Lỗi xác thực thường gặp
+
+#### "LibreSSL: error:1404B42E:SSL routines:ST_CONNECT:tlsv1 alert protocol version"
+Lỗi này xảy ra khi dùng `https://` trong URL proxy. Luôn dùng `http://` cho URL proxy:
+
+```bash
+# ❌ SAI - Không dùng https:// cho URL proxy
+curl -x https://http:PASSWORD@localhost:8888 http://ipinfo.io
+
+# ✅ ĐÚNG - Luôn dùng http:// cho URL proxy (ngay cả cho trang HTTPS)
+curl -x http://http:PASSWORD@localhost:8888 https://ipinfo.io
+```
+
+#### "illegal base64 data at input byte X"
+Nghĩa là password không phải base64 hợp lệ. Kiểm tra:
+- Khoảng trắng hoặc xuống dòng thừa
+- Ký tự không hợp lệ
+- Mã hóa đúng: `echo -n "host:port" | base64`
+
 ### Cổng đã được sử dụng
 ```bash
 make kill  # Tắt proxy đang chạy
@@ -232,6 +267,11 @@ make run   # Khởi động lại
 
 ## Hỗ trợ
 
-- Issues: [GitHub Issues](https://github.com/yourusername/smartproxy/issues)
-- Tài liệu: Xem thư mục `docs/`
-- FAQ: Xem `FAQ_vi.md`
+- Issues: [GitHub Issues](https://github.com/hothuongtin/smartproxy/issues)
+- [Bắt đầu](docs/vi/getting-started_vi.md) - Hướng dẫn cài đặt và cấu hình nhanh
+- [Cấu hình](docs/vi/configuration_vi.md) - Tùy chọn cấu hình chi tiết
+- [Tính năng](docs/vi/features_vi.md) - Tổng quan các tính năng
+- [Xác thực](docs/vi/authentication_vi.md) - Hướng dẫn xác thực thông minh
+- [Phát triển](docs/vi/development_vi.md) - Hướng dẫn cho developers
+- [Khắc phục sự cố](docs/vi/troubleshooting_vi.md) - Giải quyết vấn đề thường gặp
+- [Hiệu suất](docs/vi/performance_vi.md) - Tối ưu hóa và điều chỉnh

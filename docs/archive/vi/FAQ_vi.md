@@ -1,5 +1,20 @@
 # SmartProxy FAQ - Câu hỏi thường gặp
 
+## H: Tại sao curl báo lỗi xác thực nhưng Chrome vẫn hoạt động?
+
+**Đ:** Chrome sử dụng kết nối persistent (keep-alive). Khi bạn nhập sai mật khẩu:
+- curl tạo kết nối mới → kiểm tra xác thực → báo lỗi
+- Chrome tái sử dụng kết nối cũ đã xác thực → vẫn hoạt động
+
+Đây là hành vi chuẩn của HTTP, không phải lỗi.
+
+**Giải pháp:**
+1. Đóng hoàn toàn Chrome để ngắt kết nối cũ
+2. Hoặc vào chrome://net-internals/#sockets → "Flush socket pools"
+3. Mở lại Chrome và nhập thông tin mới
+
+Xem [BROWSER_AUTH_NOTES_vi.md](BROWSER_AUTH_NOTES_vi.md) để biết chi tiết.
+
 ## H: Tại sao ip-api.com trả về lỗi "SSL unavailable"?
 
 **Đ:** API miễn phí của ip-api.com không hỗ trợ HTTPS. Sử dụng HTTP thay vì:
@@ -12,8 +27,11 @@
 
 **Đ:** Khi `https_mitm: false` (mặc định), SmartProxy tunnel các kết nối HTTPS mà không giải mã. Điều này hoạt động hoàn hảo cho tất cả các trang HTTPS tiêu chuẩn. Proxy sẽ:
 - Thiết lập tunnel sử dụng phương thức CONNECT
+- Định tuyến kết nối HTTPS qua upstream proxy đã cấu hình (nếu có)
 - Chuyển tiếp traffic được mã hóa mà không kiểm tra
 - Duy trì mã hóa end-to-end
+
+**Lưu ý:** Kết nối HTTPS giờ đây sử dụng đúng upstream proxy được cấu hình qua xác thực, ngoại trừ các domain CDN sẽ dùng kết nối trực tiếp để có hiệu suất tốt hơn.
 
 ## H: Sự khác biệt giữa MITM bật và tắt là gì?
 

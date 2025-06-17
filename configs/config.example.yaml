@@ -21,16 +21,26 @@ server:
   read_buffer_size: 65536       # Read buffer size (64KB)
   write_buffer_size: 65536      # Write buffer size (64KB)
 
-# Upstream proxy settings (REQUIRED - proxy will not start without this)
-upstream:
-  proxy_url: ""                 # e.g., "http://proxy.com:8080" or "socks5://127.0.0.1:1080"
-  username: ""                  # Proxy authentication username
-  password: ""                  # Proxy authentication password
+# Smart Proxy Mode - Upstream is configured via authentication
+# No need to declare upstream in config file!
+# 
+# Authentication format:
+# Username: schema (http or socks5)
+# Password: base64 encoded upstream details
+# 
+# Examples:
+# - Without upstream auth: base64("host:port")
+#   Username: http
+#   Password: bmEubHVuYXByb3h5LmNvbToxMjIzMw== (na.lunaproxy.com:12233)
+#
+# - With upstream auth: base64("host:port:username:password")
+#   Username: socks5
+#   Password: bmEubHVuYXByb3h5LmNvbToxMjIzMzp1c2VyOnBhc3M= (na.lunaproxy.com:12233:user:pass)
 
 # Ad blocking settings
 ad_blocking:
   enabled: true
-  domains_file: "ad_domains.yaml"
+  domains_file: "configs/ad_domains.yaml"
 
 # File extensions to handle directly (bypass proxy)
 direct_extensions:
@@ -91,5 +101,5 @@ direct_domains:
 
 # Logging settings
 logging:
-  level: info      # debug, info, warn, error
+  level: debug      # debug, info, warn, error
   format: text     # text or json

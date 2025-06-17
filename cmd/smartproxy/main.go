@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
@@ -9,7 +10,25 @@ import (
 	"github.com/hothuongtin/smartproxy/internal/proxy"
 )
 
+var (
+	// Version information - set during build
+	Version   = "dev"
+	BuildTime = "unknown"
+	GitCommit = "unknown"
+)
+
 func main() {
+	// Parse command line flags
+	versionFlag := flag.Bool("version", false, "Show version information")
+	flag.Parse()
+
+	// Show version info if requested
+	if *versionFlag {
+		fmt.Printf("SmartProxy %s\n", Version)
+		fmt.Printf("Build Time: %s\n", BuildTime)
+		fmt.Printf("Git Commit: %s\n", GitCommit)
+		os.Exit(0)
+	}
 	// Load configuration from YAML file first to get logging settings
 	configFile := "configs/config.yaml"
 	if envConfig := os.Getenv("SMARTPROXY_CONFIG"); envConfig != "" {
@@ -32,7 +51,10 @@ func main() {
 	}
 	log := logger.SetupLogger(loggerConfig)
 
-	log.Info("Loaded configuration",
+	log.Info("Starting SmartProxy",
+		"version", Version,
+		"build_time", BuildTime,
+		"git_commit", GitCommit,
 		"config", configFile,
 		"log_level", yamlConfig.Logging.Level)
 

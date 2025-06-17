@@ -175,10 +175,19 @@ docs/
 │   ├── troubleshooting.md    # FAQ and debugging
 │   └── performance.md        # Performance optimization
 ├── vi/                       # Vietnamese documentation
-│   └── (same structure as en/)
-└── examples/                 # Example configurations
-    ├── config.example.yaml
-    └── config.debug.yaml
+│   ├── getting-started_vi.md
+│   ├── configuration_vi.md
+│   ├── features_vi.md
+│   ├── authentication_vi.md
+│   ├── development_vi.md
+│   ├── troubleshooting_vi.md
+│   └── performance_vi.md
+├── examples/                 # Example configurations
+│   ├── config.example.yaml
+│   └── config.debug.yaml
+└── archive/                  # Archived documentation
+    ├── en/                   # Archived English docs
+    └── vi/                   # Archived Vietnamese docs
 ```
 
 ### What to Update

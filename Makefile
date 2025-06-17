@@ -4,8 +4,14 @@
 BINARY_NAME := smartproxy
 MAIN_PATH := ./cmd/smartproxy
 BUILD_DIR := build
+RELEASE_DIR := release
 DOCKER_IMAGE := smartproxy
 DOCKER_TAG := latest
+
+# Version information
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
+GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
 # Go parameters
 GOCMD := go
@@ -16,7 +22,10 @@ GOGET := $(GOCMD) get
 GOMOD := $(GOCMD) mod
 
 # Build flags
-LDFLAGS := -s -w
+LDFLAGS := -s -w \
+	-X 'main.Version=$(VERSION)' \
+	-X 'main.BuildTime=$(BUILD_TIME)' \
+	-X 'main.GitCommit=$(GIT_COMMIT)'
 CGO_ENABLED := 0
 
 # Default target
@@ -75,6 +84,7 @@ clean:
 	@echo "Cleaning..."
 	@$(GOCLEAN)
 	@rm -rf $(BUILD_DIR)
+	@rm -rf $(RELEASE_DIR)
 	@rm -f $(BINARY_NAME)
 	@echo "Clean complete"
 
@@ -198,6 +208,68 @@ fmt:
 	@echo "Formatting code..."
 	@gofmt -s -w .
 
+# Release targets
+.PHONY: release
+release: clean release-all
+	@echo "Release build complete. Archives are in $(RELEASE_DIR)/"
+
+.PHONY: release-all
+release-all: release-linux release-darwin release-windows
+	@echo "All release builds complete"
+
+.PHONY: release-linux
+release-linux:
+	@echo "Building Linux releases..."
+	@mkdir -p $(RELEASE_DIR)
+	
+	# Linux AMD64
+	@echo "  Building Linux AMD64..."
+	@GOOS=linux GOARCH=amd64 CGO_ENABLED=$(CGO_ENABLED) $(GOBUILD) -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	@tar czf $(RELEASE_DIR)/$(BINARY_NAME)-$(VERSION)-linux-amd64.tar.gz -C $(BUILD_DIR) $(BINARY_NAME) -C .. README.md LICENSE configs/config.example.yaml
+	@rm $(BUILD_DIR)/$(BINARY_NAME)
+	
+	# Linux ARM64
+	@echo "  Building Linux ARM64..."
+	@GOOS=linux GOARCH=arm64 CGO_ENABLED=$(CGO_ENABLED) $(GOBUILD) -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	@tar czf $(RELEASE_DIR)/$(BINARY_NAME)-$(VERSION)-linux-arm64.tar.gz -C $(BUILD_DIR) $(BINARY_NAME) -C .. README.md LICENSE configs/config.example.yaml
+	@rm $(BUILD_DIR)/$(BINARY_NAME)
+
+.PHONY: release-darwin
+release-darwin:
+	@echo "Building macOS releases..."
+	@mkdir -p $(RELEASE_DIR)
+	
+	# macOS AMD64
+	@echo "  Building macOS AMD64..."
+	@GOOS=darwin GOARCH=amd64 CGO_ENABLED=$(CGO_ENABLED) $(GOBUILD) -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	@tar czf $(RELEASE_DIR)/$(BINARY_NAME)-$(VERSION)-darwin-amd64.tar.gz -C $(BUILD_DIR) $(BINARY_NAME) -C .. README.md LICENSE configs/config.example.yaml
+	@rm $(BUILD_DIR)/$(BINARY_NAME)
+	
+	# macOS ARM64
+	@echo "  Building macOS ARM64..."
+	@GOOS=darwin GOARCH=arm64 CGO_ENABLED=$(CGO_ENABLED) $(GOBUILD) -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	@tar czf $(RELEASE_DIR)/$(BINARY_NAME)-$(VERSION)-darwin-arm64.tar.gz -C $(BUILD_DIR) $(BINARY_NAME) -C .. README.md LICENSE configs/config.example.yaml
+	@rm $(BUILD_DIR)/$(BINARY_NAME)
+
+.PHONY: release-windows
+release-windows:
+	@echo "Building Windows releases..."
+	@mkdir -p $(RELEASE_DIR)
+	
+	# Windows AMD64
+	@echo "  Building Windows AMD64..."
+	@GOOS=windows GOARCH=amd64 CGO_ENABLED=$(CGO_ENABLED) $(GOBUILD) -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME).exe $(MAIN_PATH)
+	@zip -j $(RELEASE_DIR)/$(BINARY_NAME)-$(VERSION)-windows-amd64.zip $(BUILD_DIR)/$(BINARY_NAME).exe README.md LICENSE configs/config.example.yaml
+	@rm $(BUILD_DIR)/$(BINARY_NAME).exe
+
+# Show version info
+.PHONY: version
+version:
+	@echo "SmartProxy version info:"
+	@echo "  Version:    $(VERSION)"
+	@echo "  Build Time: $(BUILD_TIME)"
+	@echo "  Git Commit: $(GIT_COMMIT)"
+
 # Help
 .PHONY: help
 help:
@@ -210,6 +282,14 @@ help:
 	@echo "  all          - Build the binary (default)"
 	@echo "  build        - Build the binary for current platform"
 	@echo "  build-all    - Build for all platforms (Linux, macOS, Windows)"
+	@echo "  release      - Build release archives for all platforms"
+	@echo "  release-linux    - Build Linux release archives (amd64, arm64)"
+	@echo "  release-darwin   - Build macOS release archives (amd64, arm64)"
+	@echo "  release-windows  - Build Windows release archives (amd64)"
+	@echo "  version      - Show version information"
+	@echo ""
+	@echo "Release Options:"
+	@echo "  make release VERSION=v1.0.0  - Build with specific version"
 	@echo "  run          - Build and run the proxy"
 	@echo "  debug        - Build and run the proxy in debug mode"
 	@echo "  clean        - Remove build artifacts"

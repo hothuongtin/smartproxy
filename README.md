@@ -15,6 +15,19 @@ A high-performance HTTP/HTTPS proxy with intelligent routing, ad blocking, and m
 
 ## Quick Start
 
+### Download Pre-built Binaries
+
+Download the latest release for your platform from the [Releases page](https://github.com/hothuongtin/smartproxy/releases).
+
+```bash
+# Example for Linux AMD64
+wget https://github.com/hothuongtin/smartproxy/releases/latest/download/smartproxy-linux-amd64.tar.gz
+tar xzf smartproxy-linux-amd64.tar.gz
+./smartproxy
+```
+
+### Build from Source
+
 For detailed installation and setup instructions, see [Getting Started Guide](docs/en/getting-started.md).
 
 ```bash

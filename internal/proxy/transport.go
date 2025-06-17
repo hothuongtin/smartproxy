@@ -127,8 +127,19 @@ type TransportConfig struct {
 	WriteBufferSize       int
 }
 
-// Global transport cache
-var upstreamCache sync.Map // map[string]*http.Transport
+// Global transport cache with last used tracking
+var (
+	upstreamCache     sync.Map // map[string]*transportCacheEntry
+	cacheCleanupOnce  sync.Once
+	cacheCleanupStop  chan struct{}
+)
+
+// transportCacheEntry holds a transport and its last used time
+type transportCacheEntry struct {
+	transport *http.Transport
+	lastUsed  time.Time
+	mu        sync.Mutex
+}
 
 // CreateOptimizedTransport creates optimized transport for direct connections
 func CreateOptimizedTransport(config *TransportConfig) *http.Transport {
@@ -385,6 +396,78 @@ func DialThroughSOCKS5Proxy(network, targetAddr string, proxyHost, proxyPort, us
 	return conn, nil
 }
 
+// InitTransportCacheCleanup starts the periodic cache cleanup
+func InitTransportCacheCleanup(interval time.Duration, maxAge time.Duration, logger *slog.Logger) {
+	cacheCleanupOnce.Do(func() {
+		cacheCleanupStop = make(chan struct{})
+		go runCacheCleanup(interval, maxAge, logger)
+		logger.Info("Transport cache cleanup initialized",
+			"interval", interval,
+			"max_age", maxAge)
+	})
+}
+
+// StopTransportCacheCleanup stops the cache cleanup goroutine
+func StopTransportCacheCleanup() {
+	if cacheCleanupStop != nil {
+		close(cacheCleanupStop)
+	}
+}
+
+// runCacheCleanup periodically removes stale transports from cache
+func runCacheCleanup(interval time.Duration, maxAge time.Duration, logger *slog.Logger) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			cleanupTransportCache(maxAge, logger)
+		case <-cacheCleanupStop:
+			logger.Debug("Transport cache cleanup stopped")
+			return
+		}
+	}
+}
+
+// cleanupTransportCache removes stale entries from the cache
+func cleanupTransportCache(maxAge time.Duration, logger *slog.Logger) {
+	now := time.Now()
+	var cleaned int
+	var checked int
+
+	upstreamCache.Range(func(key, value interface{}) bool {
+		checked++
+		entry, ok := value.(*transportCacheEntry)
+		if !ok {
+			return true
+		}
+
+		entry.mu.Lock()
+		age := now.Sub(entry.lastUsed)
+		entry.mu.Unlock()
+
+		if age > maxAge {
+			// Close idle connections before removing
+			if entry.transport != nil {
+				entry.transport.CloseIdleConnections()
+			}
+			upstreamCache.Delete(key)
+			cleaned++
+			logger.Debug("Removed stale transport from cache",
+				"key", key,
+				"age", age)
+		}
+		return true
+	})
+
+	if cleaned > 0 {
+		logger.Info("Transport cache cleanup completed",
+			"checked", checked,
+			"cleaned", cleaned)
+	}
+}
+
 // GetUpstreamTransport gets or creates transport for the given upstream
 func GetUpstreamTransport(upstream *UpstreamInfo, config *TransportConfig, logger *slog.Logger) (*http.Transport, error) {
 	// Create cache key
@@ -392,10 +475,15 @@ func GetUpstreamTransport(upstream *UpstreamInfo, config *TransportConfig, logge
 
 	// Check cache first
 	if cached, ok := upstreamCache.Load(cacheKey); ok {
+		entry := cached.(*transportCacheEntry)
+		entry.mu.Lock()
+		entry.lastUsed = time.Now()
+		entry.mu.Unlock()
+		
 		logger.Debug("Using cached transport",
 			"cache_key", cacheKey,
 			"type", upstream.Type)
-		return cached.(*http.Transport), nil
+		return entry.transport, nil
 	}
 
 	logger.Debug("Creating new transport",
@@ -435,8 +523,12 @@ func GetUpstreamTransport(upstream *UpstreamInfo, config *TransportConfig, logge
 		return nil, err
 	}
 
-	// Cache the transport
-	upstreamCache.Store(cacheKey, transport)
+	// Cache the transport with timestamp
+	entry := &transportCacheEntry{
+		transport: transport,
+		lastUsed:  time.Now(),
+	}
+	upstreamCache.Store(cacheKey, entry)
 	logger.Debug("Transport cached", "cache_key", cacheKey)
 
 	return transport, nil

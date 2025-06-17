@@ -77,6 +77,10 @@ func (s *Server) Start() error {
 		"max_idle_conns", s.chromeTransport.MaxIdleConns,
 		"max_idle_conns_per_host", s.chromeTransport.MaxIdleConnsPerHost)
 
+	// Initialize transport cache cleanup
+	// Clean up transports not used for 5 minutes, check every minute
+	InitTransportCacheCleanup(1*time.Minute, 5*time.Minute, s.logger)
+
 	// Setup HTTPS handling
 	s.setupHTTPS()
 
@@ -701,6 +705,9 @@ func (s *Server) startHTTPServer() error {
 	go func() {
 		<-sigChan
 		s.logger.Info("Shutting down proxy server...")
+
+		// Stop transport cache cleanup
+		StopTransportCacheCleanup()
 
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()

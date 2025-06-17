@@ -1,0 +1,56 @@
+# Multi-stage build for ultra-minimal SmartProxy image using scratch
+
+# Build stage
+FROM golang:1.24-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache ca-certificates
+
+WORKDIR /build
+
+# Copy go mod files first for better caching
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY *.go ./
+
+# Build statically linked binary with all optimizations
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -ldflags='-s -w -extldflags "-static"' \
+    -tags netgo -a -installsuffix netgo \
+    -o smartproxy .
+
+# Create minimal passwd file for non-root user
+RUN echo "appuser:x:10001:10001::/:/smartproxy" > /etc/passwd.minimal
+
+# Final stage using scratch (smallest possible image)
+FROM scratch
+
+# Copy CA certificates for HTTPS
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+# Copy minimal passwd file
+COPY --from=builder /etc/passwd.minimal /etc/passwd
+
+# Copy the binary
+COPY --from=builder /build/smartproxy /smartproxy
+
+# Copy config files
+COPY config.yaml /app/config.yaml
+COPY ad_domains.yaml /app/ad_domains.yaml
+
+# Set working directory
+WORKDIR /app
+
+# Run as non-root user
+USER 10001
+
+# Expose proxy port
+EXPOSE 8888
+
+# Set config path environment variable
+ENV SMARTPROXY_CONFIG=/app/config.yaml
+
+# Run the proxy
+ENTRYPOINT ["/smartproxy"]

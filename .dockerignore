@@ -1,0 +1,54 @@
+# Ignore build artifacts
+build/
+smartproxy
+*.exe
+
+# Ignore test files
+*_test.go
+test_*.sh
+loadtest.go
+
+# Ignore documentation
+*.md
+docs/
+
+# Ignore version control
+.git/
+.gitignore
+
+# Ignore CA certificates (generated locally)
+certs/
+*.crt
+*.key
+*.pem
+
+# Ignore logs
+*.log
+logs/
+
+# Ignore development files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Ignore Docker files themselves
+Dockerfile*
+.dockerignore
+
+# Ignore CI/CD files
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Ignore temporary files
+tmp/
+temp/
+*.tmp
+
+# Ignore macOS files
+.DS_Store
+
+# Ignore Makefile (not needed in container)
+Makefile

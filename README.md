@@ -40,13 +40,13 @@ docker-compose up -d
 - [Performance](docs/en/performance.md) - Performance optimization
 
 ### Vietnamese Documentation
-- [Bắt đầu](docs/vi/getting-started.md) - Hướng dẫn cài đặt
-- [Cấu hình](docs/vi/configuration.md) - Tùy chọn cấu hình
-- [Tính năng](docs/vi/features.md) - Giải thích các tính năng
-- [Xác thực](docs/vi/authentication.md) - Xác thực proxy thông minh
-- [Phát triển](docs/vi/development.md) - Hướng dẫn phát triển
-- [Khắc phục sự cố](docs/vi/troubleshooting.md) - FAQ và gỡ lỗi
-- [Hiệu suất](docs/vi/performance.md) - Tối ưu hiệu suất
+- [Bắt đầu](docs/vi/getting-started_vi.md) - Hướng dẫn cài đặt
+- [Cấu hình](docs/vi/configuration_vi.md) - Tùy chọn cấu hình
+- [Tính năng](docs/vi/features_vi.md) - Giải thích các tính năng
+- [Xác thực](docs/vi/authentication_vi.md) - Xác thực proxy thông minh
+- [Phát triển](docs/vi/development_vi.md) - Hướng dẫn phát triển
+- [Khắc phục sự cố](docs/vi/troubleshooting_vi.md) - FAQ và gỡ lỗi
+- [Hiệu suất](docs/vi/performance_vi.md) - Tối ưu hiệu suất
 
 ## Key Features Overview
 

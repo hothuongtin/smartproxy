@@ -1,28 +1,26 @@
-# SmartProxy Debug Configuration
-# This configuration enables verbose debug logging
+# SmartProxy Configuration Example
+# Copy this file to config.yaml and update with your settings
 
 # Local proxy server settings
 server:
-  http_port: 8888
+  http_port: 8888     # HTTP/HTTPS proxy port
   
   # HTTPS interception settings
-  https_mitm: false
-  ca_cert: ""
-  ca_key: ""
+  https_mitm: true    # Enable/disable HTTPS interception (MITM)
+  ca_cert: "certs/ca.crt"          # Path to CA certificate file (leave empty to auto-generate)
+  ca_key: "certs/ca.key"           # Path to CA private key file (leave empty to auto-generate)
   
   # Performance settings for high concurrency
-  max_idle_conns: 10000
-  max_idle_conns_per_host: 100
-  idle_conn_timeout: 90
-  tls_handshake_timeout: 10
-  expect_continue_timeout: 1
+  max_idle_conns: 10000        # Maximum idle connections
+  max_idle_conns_per_host: 100 # Maximum idle connections per host
+  idle_conn_timeout: 90         # Idle connection timeout in seconds
+  tls_handshake_timeout: 10     # TLS handshake timeout in seconds
+  expect_continue_timeout: 1    # Expect continue timeout in seconds
   
   # Buffer settings
-  read_buffer_size: 65536
-  write_buffer_size: 65536
+  read_buffer_size: 65536       # Read buffer size (64KB)
+  write_buffer_size: 65536      # Write buffer size (64KB)
 
-# Smart Proxy Mode - Upstream configured via authentication
-# No upstream configuration needed in config file!
 
 # Ad blocking settings
 ad_blocking:
@@ -31,6 +29,23 @@ ad_blocking:
 
 # File extensions to handle directly (bypass proxy)
 direct_extensions:
+  # Documents
+  - .pdf
+  - .doc
+  - .docx
+  - .xls
+  - .xlsx
+  - .ppt
+  - .pptx
+  - .odt
+  - .ods
+  - .odp
+  - .rtf
+  - .txt
+  - .epub
+  - .mobi
+  
+  # Images
   - .jpg
   - .jpeg
   - .png
@@ -38,40 +53,191 @@ direct_extensions:
   - .webp
   - .svg
   - .ico
+  - .bmp
+  - .tiff
+  - .tif
+  - .raw
+  - .cr2
+  - .nef
+  - .arw
+  - .psd
+  - .ai
+  - .eps
+  - .avif
+  
+  # Videos
   - .mp4
   - .webm
+  - .avi
+  - .mov
+  - .mkv
+  - .flv
+  - .wmv
+  - .mpg
+  - .mpeg
+  - .m4v
+  - .3gp
+  - .3g2
+  - .vob
+  - .ogv
+  - .ts
+  - .m3u8
+  
+  # Audio
+  - .mp3
+  - .wav
+  - .ogg
+  - .m4a
+  - .flac
+  - .aac
+  - .wma
+  - .opus
+  - .aiff
+  - .ape
+  - .wv
+  - .amr
+  - .ac3
+  - .m3u
+  - .pls
+  
+  # Archives
+  - .zip
+  - .rar
+  - .7z
+  - .tar
+  - .gz
+  - .bz2
+  - .xz
+  - .cab
+  - .iso
+  - .dmg
+  - .pkg
+  - .deb
+  - .rpm
+  - .snap
+  - .appimage
+  - .msi
+  - .exe
+  - .app
+  
+  # Web assets
   - .css
   - .js
+  - .mjs
+  - .map
+  - .wasm
+  - .json
+  - .xml
+  - .rss
+  - .atom
+  
+  # Fonts
   - .woff
   - .woff2
-  - .pdf
-  - .zip
+  - .ttf
+  - .eot
+  - .otf
+  - .fon
+  - .fnt
+  
+  # Data files
+  - .csv
+  - .sql
+  - .db
+  - .sqlite
+  - .sqlite3
+  - .log
+  
+  # Mobile apps
+  - .apk
+  - .ipa
+  - .aab
+  
+  # Other static files
+  - .swf
+  - .jar
+  - .war
+  - .ear
+  - .dll
+  - .so
+  - .dylib
 
 # CDN domains to handle directly for HTTPS
 direct_domains:
+  # Common CDN patterns
   - cdn.
   - static.
+  - assets.
+  - media.
+  - img.
+  - images.
+  - files.
+  - download.
+  - downloads.
+  - content.
+  - cache.
+  
+  # Major CDN providers
   - cloudflare
   - akamai
   - fastly
+  - cloudfront
+  - edgecast
+  - stackpath
+  - bunny.net
+  - keycdn
+  - azureedge.net
+  - alicdn.com
+  
+  # Google services
   - googleapis.com
   - gstatic.com
+  - google-analytics.com
+  - googletagmanager.com
+  - doubleclick.net
+  - googlevideo.com
+  - googleusercontent.com
+  - storage.googleapis.com
+  
+  # Popular CDNs
+  - cloudfront.net
   - jsdelivr.net
+  - jspm.io
   - unpkg.com
+  - cdnjs.com
+  - bootstrapcdn.com
+  - jquery.com
+  - fontawesome.com
+  - fonts.googleapis.com
+  - fonts.gstatic.com
+  
+  # Media and file hosting
+  - github.io
+  - githubusercontent.com
+  - gitlab.io
+  - bitbucket.io
+  - sourceforge.net
+  - dropbox.com
+  - dropboxusercontent.com
+  - box.com
+  
+  # Package registries
+  - npmjs.org
+  - npmjs.com
+  - pypi.org
+  - rubygems.org
+  - packagist.org
+  - crates.io
+  - nuget.org
+  
+  # Documentation sites
+  - readthedocs.io
+  - readthedocs.org
+  - gitbook.io
+  - docs.microsoft.com
+  - developer.mozilla.org
 
-# Logging settings - DEBUG MODE
+# Logging settings
 logging:
-  level: debug      # Set to debug for verbose output
-  format: text
-
-# Debug mode will log:
-# - All incoming requests with method, URL, headers
-# - Authentication parsing details
-# - Upstream selection logic
-# - Routing decisions (direct vs upstream)
-# - Static file and CDN detection
-# - Ad domain blocking
-# - Transport creation and caching
-# - Request/response timing
-# - Connection handling
-# - Error details
+  level: true      # debug, info, warn, error
+  format: text     # text or json

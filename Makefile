@@ -116,12 +116,64 @@ docker-build:
 .PHONY: docker-run
 docker-run:
 	@echo "Running Docker container..."
-	@docker run -it --rm -p 8888:8888 -v $(PWD)/configs/config.yaml:/app/configs/config.yaml:ro $(DOCKER_IMAGE):$(DOCKER_TAG)
+	@docker run -it --rm -p 8888:8888  \
+		-v $(PWD)/configs:/app/configs:ro \
+		-v $(PWD)/certs:/app/certs:ro \
+		$(DOCKER_IMAGE):$(DOCKER_TAG)
 
 .PHONY: docker-push
 docker-push:
 	@echo "Pushing Docker image..."
 	@docker push $(DOCKER_IMAGE):$(DOCKER_TAG)
+
+# RouterOS 7 Docker targets
+.PHONY: docker-build-routeros
+docker-build-routeros:
+	@echo "Building RouterOS 7 Docker image (ARM64)..."
+	@docker build --platform=linux/arm64 -f docker/Dockerfile.routeros -t $(DOCKER_IMAGE):routeros .
+
+.PHONY: docker-run-routeros
+docker-run-routeros:
+	@echo "Running RouterOS 7 Docker container..."
+	@docker run -it --rm --platform=linux/arm64 -p 8888:8888 \
+		-v $(PWD)/configs:/app/configs:ro \
+		-v $(PWD)/certs:/app/certs:ro \
+		$(DOCKER_IMAGE):routeros
+
+.PHONY: docker-compose-routeros
+docker-compose-routeros:
+	@echo "Starting RouterOS 7 services with docker-compose..."
+	@cd docker && docker-compose -f docker-compose.routeros.yml up -d
+
+.PHONY: docker-compose-routeros-down
+docker-compose-routeros-down:
+	@echo "Stopping RouterOS 7 services..."
+	@cd docker && docker-compose -f docker-compose.routeros.yml down
+
+.PHONY: docker-setup-routeros
+docker-setup-routeros:
+	@echo "Setting up RouterOS 7 deployment directories..."
+	@mkdir -p /routeros/{configs,certs,logs}
+	@cp configs/config.example.yaml /routeros/configs/config.yaml
+	@cp configs/ad_domains.yaml /routeros/configs/ad_domains.yaml
+	@chmod 644 /routeros/configs/*.yaml
+	@echo "RouterOS directories created at /routeros/"
+	@echo "Edit /routeros/configs/config.yaml before running"
+
+# Test RouterOS container locally
+.PHONY: docker-test-routeros
+docker-test-routeros: docker-build-routeros
+	@echo "Testing RouterOS container locally..."
+	@mkdir -p ./test-routeros/{configs,certs,logs}
+	@cp configs/config.example.yaml ./test-routeros/configs/config.yaml
+	@cp configs/ad_domains.yaml ./test-routeros/configs/ad_domains.yaml || true
+	@docker run -it --rm --platform=linux/arm64 -p 8888:8888 \
+		--privileged \
+		--ulimit nofile=65536:65536 \
+		--ulimit nproc=32768:32768 \
+		-v $(PWD)/test-routeros/configs:/app/configs \
+		-v $(PWD)/test-routeros/certs:/app/certs \
+		$(DOCKER_IMAGE):routeros
 
 # Development helpers
 .PHONY: dev
@@ -167,6 +219,10 @@ help:
 	@echo "  ca-cert      - Generate CA certificate for HTTPS MITM"
 	@echo "  docker-build - Build Docker image"
 	@echo "  docker-run   - Run Docker container"
+	@echo "  docker-build-routeros     - Build RouterOS 7 Docker image (ARM64)"
+	@echo "  docker-run-routeros       - Run RouterOS 7 Docker container"
+	@echo "  docker-compose-routeros   - Start RouterOS 7 with docker-compose"
+	@echo "  docker-setup-routeros     - Setup RouterOS 7 deployment directories"
 	@echo "  dev          - Run in development mode"
 	@echo "  kill         - Kill running proxy"
 	@echo "  lint         - Run linter"

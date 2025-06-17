@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  smartproxy-routeros:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.routeros
+      platforms:
+        - linux/arm64
+    image: smartproxy:routeros
+    container_name: smartproxy-routeros
+    restart: unless-stopped
+    ports:
+      - "8888:8888"
+    volumes:
+      # Mount config files (create /routeros/configs on host)
+      - /routeros/configs:/app/configs
+      # Mount CA certificates for HTTPS MITM (create /routeros/certs on host)
+      - /routeros/certs:/app/certs
+    environment:
+      - SMARTPROXY_CONFIG=/app/configs/config.yaml
+      - TZ=UTC
+    networks:
+      - routeros-network
+    # Resource limits suitable for RouterOS embedded devices
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    # Health check
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8888"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    # Basic security - no privileged mode
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=32m
+      - /app/logs:size=32m
+
+networks:
+  routeros-network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16

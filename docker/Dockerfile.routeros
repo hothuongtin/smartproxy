@@ -1,0 +1,65 @@
+# RouterOS 7 optimized Docker image for SmartProxy
+# Minimal container for RouterOS embedded environment
+
+# Build stage
+FROM --platform=linux/arm64 golang:1.24-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache git
+
+WORKDIR /build
+
+# Copy go mod files first for better caching
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY cmd/ ./cmd/
+COPY internal/ ./internal/
+
+# Build static binary for ARM64
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
+    go build -ldflags='-s -w -extldflags "-static"' \
+    -a -installsuffix cgo -o smartproxy ./cmd/smartproxy
+
+# Final stage - minimal Alpine
+FROM --platform=linux/arm64 alpine:3.19
+
+# Install only essential runtime dependencies
+RUN apk add --no-cache ca-certificates
+
+# Copy the binary
+COPY --from=builder /build/smartproxy /usr/local/bin/smartproxy
+
+# Create app directories
+RUN mkdir -p /app/configs /app/certs /app/logs
+
+# Set working directory
+WORKDIR /app
+
+# Create default config
+RUN cat > /app/configs/config.default.yaml <<EOF
+server:
+  http_port: 8888
+  https_mitm: false
+  max_idle_conns: 500
+  max_idle_conns_per_host: 25
+ad_blocking:
+  enabled: true
+logging:
+  level: info
+  format: text
+EOF
+
+# Expose proxy port
+EXPOSE 8888
+
+# Set config path environment variable
+ENV SMARTPROXY_CONFIG=/app/configs/config.yaml
+
+# Simple health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD nc -z localhost 8888 || exit 1
+
+# Run smartproxy directly
+CMD ["/usr/local/bin/smartproxy"]

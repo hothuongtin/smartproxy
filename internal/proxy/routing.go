@@ -11,7 +11,7 @@ import (
 var (
 	adDomainsMap   map[string]bool
 	adDomainsMutex sync.RWMutex
-	
+
 	// Static file extensions map for O(1) lookup
 	staticExtMap   map[string]bool
 	staticExtMutex sync.RWMutex
@@ -37,7 +37,7 @@ func SetAdDomainsMap(adMap map[string]bool) {
 func InitStaticExtensions(extensions []string) {
 	staticExtMutex.Lock()
 	defer staticExtMutex.Unlock()
-	
+
 	staticExtMap = make(map[string]bool, len(extensions))
 	for _, ext := range extensions {
 		// Store extensions in lowercase for case-insensitive matching
@@ -60,7 +60,7 @@ func IsStaticFile(urlStr string, config *RoutingConfig, logger *slog.Logger) boo
 
 	// First try O(1) map lookup if initialized
 	staticExtMutex.RLock()
-	if staticExtMap != nil && len(staticExtMap) > 0 {
+	if len(staticExtMap) > 0 {
 		// Extract file extension
 		lastDot := strings.LastIndex(lowerPath, ".")
 		if lastDot != -1 && lastDot < len(lowerPath)-1 {
@@ -75,21 +75,19 @@ func IsStaticFile(urlStr string, config *RoutingConfig, logger *slog.Logger) boo
 				return true
 			}
 		}
-		staticExtMutex.RUnlock()
-	} else {
-		staticExtMutex.RUnlock()
-		
-		// Fallback to linear search if map not initialized
-		if config != nil {
-			for _, ext := range config.DirectExtensions {
-				if strings.HasSuffix(lowerPath, ext) {
-					logger.Debug("URL identified as static file (linear search)",
-						"url", urlStr,
-						"path", path,
-						"extension", ext,
-						"action", "direct_connection")
-					return true
-				}
+	}
+	staticExtMutex.RUnlock()
+
+	// Fallback to linear search if map not initialized
+	if config != nil {
+		for _, ext := range config.DirectExtensions {
+			if strings.HasSuffix(lowerPath, ext) {
+				logger.Debug("URL identified as static file (linear search)",
+					"url", urlStr,
+					"path", path,
+					"extension", ext,
+					"action", "direct_connection")
+				return true
 			}
 		}
 	}

@@ -6,9 +6,9 @@ server:
   http_port: 8888     # HTTP/HTTPS proxy port
   
   # HTTPS interception settings
-  https_mitm: false    # Enable/disable HTTPS interception (MITM)
-  ca_cert: ""          # Path to CA certificate file (leave empty to auto-generate)
-  ca_key: ""           # Path to CA private key file (leave empty to auto-generate)
+  https_mitm: true    # Enable/disable HTTPS interception (MITM)
+  ca_cert: "certs/ca.crt"          # Path to CA certificate file (leave empty to auto-generate)
+  ca_key: "certs/ca.key"           # Path to CA private key file (leave empty to auto-generate)
   
   # Performance settings for high concurrency
   max_idle_conns: 10000        # Maximum idle connections
@@ -21,21 +21,6 @@ server:
   read_buffer_size: 65536       # Read buffer size (64KB)
   write_buffer_size: 65536      # Write buffer size (64KB)
 
-# Smart Proxy Mode - Upstream is configured via authentication
-# No need to declare upstream in config file!
-# 
-# Authentication format:
-# Username: schema (http or socks5)
-# Password: base64 encoded upstream details
-# 
-# Examples:
-# - Without upstream auth: base64("host:port")
-#   Username: http
-#   Password: bmEubHVuYXByb3h5LmNvbToxMjIzMw== (na.lunaproxy.com:12233)
-#
-# - With upstream auth: base64("host:port:username:password")
-#   Username: socks5
-#   Password: bmEubHVuYXByb3h5LmNvbToxMjIzMzp1c2VyOnBhc3M= (na.lunaproxy.com:12233:user:pass)
 
 # Ad blocking settings
 ad_blocking:
@@ -48,6 +33,17 @@ direct_extensions:
   - .pdf
   - .doc
   - .docx
+  - .xls
+  - .xlsx
+  - .ppt
+  - .pptx
+  - .odt
+  - .ods
+  - .odp
+  - .rtf
+  - .txt
+  - .epub
+  - .mobi
   
   # Images
   - .jpg
@@ -57,28 +53,114 @@ direct_extensions:
   - .webp
   - .svg
   - .ico
+  - .bmp
+  - .tiff
+  - .tif
+  - .raw
+  - .cr2
+  - .nef
+  - .arw
+  - .psd
+  - .ai
+  - .eps
+  - .avif
   
   # Videos
   - .mp4
   - .webm
   - .avi
   - .mov
+  - .mkv
+  - .flv
+  - .wmv
+  - .mpg
+  - .mpeg
+  - .m4v
+  - .3gp
+  - .3g2
+  - .vob
+  - .ogv
+  - .ts
+  - .m3u8
   
   # Audio
   - .mp3
   - .wav
   - .ogg
-  
-  # Web assets
-  - .css
-  - .js
-  - .woff
-  - .woff2
+  - .m4a
+  - .flac
+  - .aac
+  - .wma
+  - .opus
+  - .aiff
+  - .ape
+  - .wv
+  - .amr
+  - .ac3
+  - .m3u
+  - .pls
   
   # Archives
   - .zip
   - .rar
   - .7z
+  - .tar
+  - .gz
+  - .bz2
+  - .xz
+  - .cab
+  - .iso
+  - .dmg
+  - .pkg
+  - .deb
+  - .rpm
+  - .snap
+  - .appimage
+  - .msi
+  - .exe
+  - .app
+  
+  # Web assets
+  - .css
+  - .js
+  - .mjs
+  - .map
+  - .wasm
+  - .json
+  - .xml
+  - .rss
+  - .atom
+  
+  # Fonts
+  - .woff
+  - .woff2
+  - .ttf
+  - .eot
+  - .otf
+  - .fon
+  - .fnt
+  
+  # Data files
+  - .csv
+  - .sql
+  - .db
+  - .sqlite
+  - .sqlite3
+  - .log
+  
+  # Mobile apps
+  - .apk
+  - .ipa
+  - .aab
+  
+  # Other static files
+  - .swf
+  - .jar
+  - .war
+  - .ear
+  - .dll
+  - .so
+  - .dylib
 
 # CDN domains to handle directly for HTTPS
 direct_domains:
@@ -86,20 +168,76 @@ direct_domains:
   - cdn.
   - static.
   - assets.
+  - media.
+  - img.
+  - images.
+  - files.
+  - download.
+  - downloads.
+  - content.
+  - cache.
   
   # Major CDN providers
   - cloudflare
   - akamai
   - fastly
   - cloudfront
+  - edgecast
+  - stackpath
+  - bunny.net
+  - keycdn
+  - azureedge.net
+  - alicdn.com
   
-  # Popular services
+  # Google services
   - googleapis.com
   - gstatic.com
+  - google-analytics.com
+  - googletagmanager.com
+  - doubleclick.net
+  - googlevideo.com
+  - googleusercontent.com
+  - storage.googleapis.com
+  
+  # Popular CDNs
+  - cloudfront.net
   - jsdelivr.net
+  - jspm.io
   - unpkg.com
+  - cdnjs.com
+  - bootstrapcdn.com
+  - jquery.com
+  - fontawesome.com
+  - fonts.googleapis.com
+  - fonts.gstatic.com
+  
+  # Media and file hosting
+  - github.io
+  - githubusercontent.com
+  - gitlab.io
+  - bitbucket.io
+  - sourceforge.net
+  - dropbox.com
+  - dropboxusercontent.com
+  - box.com
+  
+  # Package registries
+  - npmjs.org
+  - npmjs.com
+  - pypi.org
+  - rubygems.org
+  - packagist.org
+  - crates.io
+  - nuget.org
+  
+  # Documentation sites
+  - readthedocs.io
+  - readthedocs.org
+  - gitbook.io
+  - docs.microsoft.com
+  - developer.mozilla.org
 
 # Logging settings
 logging:
-  level: debug      # debug, info, warn, error
+  level: info      # debug, info, warn, error
   format: text     # text or json

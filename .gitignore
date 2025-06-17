@@ -4,6 +4,7 @@
 *.dll
 *.so
 *.dylib
+CLAUDE.md
 
 # Build output
 /smartproxy

@@ -508,6 +508,11 @@ func (s *Server) setupMITMRouting() {
 			userAgent := r.Header.Get("User-Agent")
 			isChrome := IsChromeBrowser(userAgent)
 			
+			// Optimize Chrome headers
+			if isChrome {
+				optimizeChromeHeaders(r, s.logger)
+			}
+			
 			// Determine which transport to use
 			if IsStaticFile(fullURL, s.routingConfig, s.logger) || IsCDNDomain(r.Host, s.routingConfig, s.logger) {
 				// Use direct connection for static files and CDNs
@@ -600,6 +605,11 @@ func (s *Server) setupNonMITMRouting() {
 			userAgent := r.Header.Get("User-Agent")
 			isChrome := IsChromeBrowser(userAgent)
 			
+			// Optimize Chrome headers
+			if isChrome {
+				optimizeChromeHeaders(r, s.logger)
+			}
+			
 			// Check if it's a static file or CDN
 			if IsStaticFile(fullURL, s.routingConfig, s.logger) || IsCDNDomain(r.Host, s.routingConfig, s.logger) {
 				// Use direct connection
@@ -679,6 +689,51 @@ func (s *Server) setupNonMITMRouting() {
 
 			return r, nil
 		})
+}
+
+// optimizeChromeHeaders removes unnecessary headers sent by Chrome
+func optimizeChromeHeaders(r *http.Request, logger *slog.Logger) {
+	// Remove Chrome-specific headers that aren't needed for most requests
+	headersToRemove := []string{
+		"Sec-Ch-Ua",           // Chrome user agent client hints
+		"Sec-Ch-Ua-Mobile",    // Mobile client hint
+		"Sec-Ch-Ua-Platform",  // Platform client hint
+		"Upgrade-Insecure-Requests", // Not needed for proxy
+		"Sec-Fetch-Site",      // Fetch metadata
+		"Sec-Fetch-Mode",      // Fetch metadata
+		"Sec-Fetch-User",      // Fetch metadata
+		"Sec-Fetch-Dest",      // Fetch metadata
+	}
+	
+	removed := 0
+	for _, header := range headersToRemove {
+		if r.Header.Get(header) != "" {
+			r.Header.Del(header)
+			removed++
+		}
+	}
+	
+	// Optimize Accept-Encoding for Chrome
+	// Chrome sends verbose encoding headers, simplify them
+	if acceptEncoding := r.Header.Get("Accept-Encoding"); acceptEncoding != "" {
+		// Simplify to just gzip and deflate for better compatibility
+		r.Header.Set("Accept-Encoding", "gzip, deflate")
+	}
+	
+	// Remove unnecessary Accept-Language complexity
+	if acceptLang := r.Header.Get("Accept-Language"); len(acceptLang) > 50 {
+		// Simplify to primary language only
+		parts := strings.Split(acceptLang, ",")
+		if len(parts) > 0 {
+			r.Header.Set("Accept-Language", strings.TrimSpace(parts[0]))
+		}
+	}
+	
+	if removed > 0 {
+		logger.Debug("Optimized Chrome headers",
+			"removed_count", removed,
+			"url", r.URL.Path)
+	}
 }
 
 // startHTTPServer creates and starts the HTTP server
